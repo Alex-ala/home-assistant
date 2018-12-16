@@ -87,7 +87,7 @@ HM_DEVICE_TYPES = {
         'MotionIP', 'RemoteMotion', 'WeatherSensor', 'TiltSensor',
         'IPShutterContact', 'HMWIOSwitch', 'MaxShutterContact', 'Rain',
         'WiredSensor', 'PresenceIP', 'IPWeatherSensor', 'IPPassageSensor',
-        'SmartwareMotion', 'IPWeatherSensorPlus'],
+        'SmartwareMotion', 'IPWeatherSensorPlus', 'IPThermostatWall230V'],
     DISCOVER_COVER: ['Blind', 'KeyBlind', 'IPKeyBlind', 'IPKeyBlindTilt'],
     DISCOVER_LOCKS: ['KeyMatic']
 }
