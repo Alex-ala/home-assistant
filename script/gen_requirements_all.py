@@ -118,6 +118,7 @@ TEST_REQUIREMENTS = (
     'sqlalchemy',
     'srpenergy',
     'statsd',
+    'toonapilib',
     'uvcclient',
     'vsure',
     'warrant',
@@ -159,6 +160,10 @@ pycrypto==1000000000.0.0
 
 # Contains code to modify Home Assistant to work around our rules
 python-systemair-savecair==1000000000.0.0
+
+# Newer version causes pylint to take forever
+# https://github.com/timothycrosley/isort/issues/848
+isort==4.3.4
 """
 
 
