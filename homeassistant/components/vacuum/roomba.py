@@ -92,7 +92,9 @@ async def async_setup_platform(
     except asyncio.TimeoutError:
         raise PlatformNotReady
 
-    roomba.enable_map(mapPath="/home/homeassistant/.homeassistant/www/map", mapSize="(2000,800,120,-296,0,0)")
+    roomba.enable_map(mapPath="/home/homeassistant/.homeassistant/www/map",
+                      mapSize="(2000,800,120,-296,0,0)",
+                      enable=True)
     roomba_vac = RoombaVacuum(name, roomba)
     hass.data[PLATFORM][host] = roomba_vac
 
