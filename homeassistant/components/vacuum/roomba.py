@@ -15,7 +15,7 @@ from homeassistant.components.vacuum import (
     SUPPORT_RETURN_HOME, SUPPORT_SEND_COMMAND, SUPPORT_STATUS, SUPPORT_STOP,
     SUPPORT_TURN_OFF, SUPPORT_TURN_ON, VacuumDevice)
 from homeassistant.const import (
-    CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME)
+    CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME, CONF_PATH, CONF_SIZE, CONF_ICON)
 from homeassistant.exceptions import PlatformNotReady
 import homeassistant.helpers.config_validation as cv
 
@@ -41,6 +41,9 @@ CONF_CONTINUOUS = 'continuous'
 DEFAULT_CERT = '/etc/ssl/certs/ca-certificates.crt'
 DEFAULT_CONTINUOUS = True
 DEFAULT_NAME = 'Roomba'
+DEFAULT_PATH = '.'
+DEFAULT_SIZE = '(800,1500,0,0,0,0)'
+DEFAULT_ICON = '.'
 
 PLATFORM = 'roomba'
 
@@ -56,6 +59,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_PASSWORD): cv.string,
     vol.Optional(CONF_CERT, default=DEFAULT_CERT): cv.string,
     vol.Optional(CONF_CONTINUOUS, default=DEFAULT_CONTINUOUS): cv.boolean,
+    vol.Optional(CONF_PATH, default=DEFAULT_PATH): cv.string,
+    vol.Optional(CONF_SIZE, default=DEFAULT_SIZE): cv.string,
+    vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string
 }, extra=vol.ALLOW_EXTRA)
 
 # Commonly supported features
@@ -80,6 +86,9 @@ async def async_setup_platform(
     password = config.get(CONF_PASSWORD)
     certificate = config.get(CONF_CERT)
     continuous = config.get(CONF_CONTINUOUS)
+    map_path = config.get(CONF_PATH)
+    map_size = config.get(CONF_SIZE)
+    map_icon_path = config.get(CONF_ICON)
 
     roomba = Roomba(
         address=host, blid=username, password=password, cert_name=certificate,
@@ -92,9 +101,7 @@ async def async_setup_platform(
     except asyncio.TimeoutError:
         raise PlatformNotReady
 
-    roomba.enable_map(mapPath="/home/homeassistant/.homeassistant/www/map",
-                      mapSize="(2000,800,120,-296,0,0)",
-                      enable=True)
+    roomba.enable_map(mapPath=map_path, mapSize=map_size, enable=True, iconPath=map_icon_path)
     roomba_vac = RoombaVacuum(name, roomba)
     hass.data[PLATFORM][host] = roomba_vac
 
@@ -172,6 +179,7 @@ class RoombaVacuum(VacuumDevice):
 
     async def async_turn_off(self, **kwargs):
         """Turn the vacuum off and return to home."""
+        await self.async_stop()
         await self.async_stop()
         await self.async_return_to_base()
 
