@@ -101,7 +101,7 @@ async def async_setup_platform(
         raise PlatformNotReady
 
     if map_path != None:
-        roomba.enable_map(mapPath=map_path, mapSize=map_size, enable=True, iconPath=map_icon_path, floorplan='floormap.png')
+        roomba.enable_map(mapPath=map_path, mapSize=map_size, enable=True, iconPath=map_icon_path, floorplan=map_path)
     roomba_vac = RoombaVacuum(name, roomba)
     hass.data[PLATFORM][host] = roomba_vac
 
