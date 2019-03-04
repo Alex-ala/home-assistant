@@ -41,7 +41,6 @@ CONF_CONTINUOUS = 'continuous'
 DEFAULT_CERT = '/etc/ssl/certs/ca-certificates.crt'
 DEFAULT_CONTINUOUS = True
 DEFAULT_NAME = 'Roomba'
-DEFAULT_PATH = '.'
 DEFAULT_SIZE = '(800,1500,0,0,0,0)'
 DEFAULT_ICON = '.'
 
@@ -59,7 +58,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_PASSWORD): cv.string,
     vol.Optional(CONF_CERT, default=DEFAULT_CERT): cv.string,
     vol.Optional(CONF_CONTINUOUS, default=DEFAULT_CONTINUOUS): cv.boolean,
-    vol.Optional(CONF_PATH, default=DEFAULT_PATH): cv.string,
+    vol.Optional(CONF_PATH, default=None): cv.string,
     vol.Optional(CONF_SIZE, default=DEFAULT_SIZE): cv.string,
     vol.Optional(CONF_ICON, default=DEFAULT_ICON): cv.string
 }, extra=vol.ALLOW_EXTRA)
@@ -101,7 +100,8 @@ async def async_setup_platform(
     except asyncio.TimeoutError:
         raise PlatformNotReady
 
-    roomba.enable_map(mapPath=map_path, mapSize=map_size, enable=True, iconPath=map_icon_path)
+    if map_path != None:
+        roomba.enable_map(mapPath=map_path, mapSize=map_size, enable=True, iconPath=map_icon_path, floormap='floormap.png')
     roomba_vac = RoombaVacuum(name, roomba)
     hass.data[PLATFORM][host] = roomba_vac
 
