@@ -82,7 +82,7 @@ HM_DEVICE_TYPES = {
     DISCOVER_BINARY_SENSORS: [
         'ShutterContact', 'Smoke', 'SmokeV2', 'Motion', 'MotionV2',
         'MotionIP', 'RemoteMotion', 'WeatherSensor', 'TiltSensor',
-        'IPShutterContact', 'HMWIOSwitch', 'MaxShutterContact', 'Rain',
+        'IPShutterContact', 'IPShutterContactSabotage', 'HMWIOSwitch', 'MaxShutterContact', 'Rain',
         'WiredSensor', 'PresenceIP', 'IPWeatherSensor', 'IPPassageSensor',
         'SmartwareMotion', 'IPWeatherSensorPlus', 'MotionIPV2', 'WaterIP',
         'IPMultiIO', 'TiltIP', 'IPThermostatWall230V'],
