@@ -42,7 +42,7 @@ class HMCover(HMDevice, CoverDevice):
             position = float(kwargs[ATTR_POSITION])
             position = min(100, max(0, position))
             level = position / 100.0
-            _LOGGER.error('Setting cover to '+ str(level))
+            _LOGGER.info('Setting cover to '+ str(level))
             self._hmdevice.set_level(level, self._channel)
 
     @property
@@ -53,10 +53,12 @@ class HMCover(HMDevice, CoverDevice):
 
     def open_cover(self, **kwargs):
         """Open the cover."""
+        _LOGGER.info('Opening cover')
         self._hmdevice.move_up(self._channel)
 
     def close_cover(self, **kwargs):
         """Close the cover."""
+        _LOGGER.info('Closing cover')
         self._hmdevice.move_down(self._channel)
 
     def stop_cover(self, **kwargs):
@@ -88,17 +90,19 @@ class HMCover(HMDevice, CoverDevice):
             position = float(kwargs[ATTR_TILT_POSITION])
             position = min(100, max(0, position))
             level = position / 100.0
-            _LOGGER.error('Setting cover tilt to '+ str(level))
+            _LOGGER.info('Setting cover tilt to '+ str(level))
             self._hmdevice.set_cover_tilt_position(level, self._channel)
 
     def open_cover_tilt(self, **kwargs):
         """Open the cover tilt."""
         if "LEVEL_2" in self._data:
+            _LOGGER.info('Opening cover tilt')
             self._hmdevice.open_slats()
 
     def close_cover_tilt(self, **kwargs):
         """Close the cover tilt."""
         if "LEVEL_2" in self._data:
+            _LOGGER.info('Closing cover tilt')
             self._hmdevice.close_slats()
 
     def stop_cover_tilt(self, **kwargs):
