@@ -42,7 +42,7 @@ class HMCover(HMDevice, CoverDevice):
             position = float(kwargs[ATTR_POSITION])
             position = min(100, max(0, position))
             level = position / 100.0
-            _LOGGER.info('Setting cover to '+ str(level))
+            _LOGGER.error('Setting cover to '+ str(level))
             self._hmdevice.set_level(level, self._channel)
 
     @property
@@ -88,7 +88,7 @@ class HMCover(HMDevice, CoverDevice):
             position = float(kwargs[ATTR_TILT_POSITION])
             position = min(100, max(0, position))
             level = position / 100.0
-            _LOGGER.info('Setting cover tilt to '+ str(level))
+            _LOGGER.error('Setting cover tilt to '+ str(level))
             self._hmdevice.set_cover_tilt_position(level, self._channel)
 
     def open_cover_tilt(self, **kwargs):
