@@ -36,7 +36,7 @@ CONF_OFFSET = 'offset'
 
 DEFAULT_NAME = 'Roomba'
 
-PLATFORM = 'roombai7'
+PLATFORM = 'roomba'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
