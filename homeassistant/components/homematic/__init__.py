@@ -74,18 +74,18 @@ HM_DEVICE_TYPES = {
         'IPWeatherSensor', 'RotaryHandleSensorIP', 'IPPassageSensor',
         'IPKeySwitchPowermeter', 'IPThermostatWall230V', 'IPWeatherSensorPlus',
         'IPWeatherSensorBasic', 'IPBrightnessSensor', 'IPGarage',
-        'UniversalSensor', 'MotionIPV2', 'IPMultiIO'],
+        'UniversalSensor', 'MotionIPV2', 'IPMultiIO', 'IPThermostatWall2'],
     DISCOVER_CLIMATE: [
         'Thermostat', 'ThermostatWall', 'MAXThermostat', 'ThermostatWall2',
         'MAXWallThermostat', 'IPThermostat', 'IPThermostatWall',
-        'ThermostatGroup', 'IPThermostatWall230V'],
+        'ThermostatGroup', 'IPThermostatWall230V', 'IPThermostatWall2'],
     DISCOVER_BINARY_SENSORS: [
         'ShutterContact', 'Smoke', 'SmokeV2', 'Motion', 'MotionV2',
         'MotionIP', 'RemoteMotion', 'WeatherSensor', 'TiltSensor',
         'IPShutterContact', 'IPShutterContactSabotage', 'HMWIOSwitch', 'MaxShutterContact', 'Rain',
         'WiredSensor', 'PresenceIP', 'IPWeatherSensor', 'IPPassageSensor',
         'SmartwareMotion', 'IPWeatherSensorPlus', 'MotionIPV2', 'WaterIP',
-        'IPMultiIO', 'TiltIP', 'IPThermostatWall230V'],
+        'IPMultiIO', 'TiltIP', 'IPThermostatWall230V', 'IPShutterContactSabotage'],
     DISCOVER_COVER: ['Blind', 'KeyBlind', 'IPKeyBlind', 'IPKeyBlindTilt'],
     DISCOVER_LOCKS: ['KeyMatic']
 }
@@ -98,7 +98,8 @@ HM_IGNORE_DISCOVERY_NODE = [
 HM_IGNORE_DISCOVERY_NODE_EXCEPTIONS = {
     'ACTUAL_TEMPERATURE': [
         'IPAreaThermostat', 'IPWeatherSensor',
-        'IPWeatherSensorPlus', 'IPWeatherSensorBasic'],
+        'IPWeatherSensorPlus', 'IPWeatherSensorBasic',
+        'IPThermostatWall', 'IPThermostatWall2'],
 }
 
 HM_ATTRIBUTE_SUPPORT = {

@@ -327,11 +327,7 @@ def mock_registry(hass, mock_entries=None):
     registry = entity_registry.EntityRegistry(hass)
     registry.entities = mock_entries or OrderedDict()
 
-    async def _get_reg():
-        return registry
-
-    hass.data[entity_registry.DATA_REGISTRY] = \
-        hass.loop.create_task(_get_reg())
+    hass.data[entity_registry.DATA_REGISTRY] = registry
     return registry
 
 
@@ -340,11 +336,7 @@ def mock_area_registry(hass, mock_entries=None):
     registry = area_registry.AreaRegistry(hass)
     registry.areas = mock_entries or OrderedDict()
 
-    async def _get_reg():
-        return registry
-
-    hass.data[area_registry.DATA_REGISTRY] = \
-        hass.loop.create_task(_get_reg())
+    hass.data[area_registry.DATA_REGISTRY] = registry
     return registry
 
 
@@ -353,11 +345,7 @@ def mock_device_registry(hass, mock_entries=None):
     registry = device_registry.DeviceRegistry(hass)
     registry.devices = mock_entries or OrderedDict()
 
-    async def _get_reg():
-        return registry
-
-    hass.data[device_registry.DATA_REGISTRY] = \
-        hass.loop.create_task(_get_reg())
+    hass.data[device_registry.DATA_REGISTRY] = registry
     return registry
 
 
@@ -452,7 +440,7 @@ class MockModule:
                  requirements=None, config_schema=None, platform_schema=None,
                  platform_schema_base=None, async_setup=None,
                  async_setup_entry=None, async_unload_entry=None,
-                 async_migrate_entry=None):
+                 async_migrate_entry=None, async_remove_entry=None):
         """Initialize the mock module."""
         self.__name__ = 'homeassistant.components.{}'.format(domain)
         self.DOMAIN = domain
@@ -486,6 +474,9 @@ class MockModule:
 
         if async_migrate_entry is not None:
             self.async_migrate_entry = async_migrate_entry
+
+        if async_remove_entry is not None:
+            self.async_remove_entry = async_remove_entry
 
 
 class MockPlatform:
