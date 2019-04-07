@@ -109,7 +109,10 @@ class RoombaVacuum(VacuumDevice):
     @property
     def status(self):
         """Return the status of the vacuum cleaner."""
-        return self._mission_state
+        if self._is_on:
+            return 'on'
+        else:
+            return 'off'
 
     @property
     def is_on(self) -> bool:
