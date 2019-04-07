@@ -128,6 +128,7 @@ class RoombaVacuum(VacuumDevice):
         bin_state = self.vacuum.get_bin_state()
         if bin_state == "Full":
             bin_full = True
+            bin_present = True
         else:
             bin_full = False
             if bin_state == "Not present":
@@ -228,4 +229,7 @@ class RoombaVacuum(VacuumDevice):
         self._battery_level = self.vacuum.get_battery_level()
         self._mission_name = None
         self._mission_state = None
-        self._is_on = self._mission_state == 'run'
+        if self._mission_state == 'run':
+            self._is_on = True
+        else:
+            self._is_on = False
