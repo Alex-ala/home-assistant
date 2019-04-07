@@ -29,6 +29,7 @@ ATTR_ERROR = 'error'
 ATTR_POSITION = 'position'
 ATTR_MISSION_STATE = 'mission_state'
 ATTR_MISSION_NAME = 'mission_name'
+ATTR_STATUS = 'status'
 
 CONF_FLOORPLAN = 'floorplan'
 CONF_MAP = 'map'
@@ -147,7 +148,8 @@ class RoombaVacuum(VacuumDevice):
             ATTR_BIN_PRESENT: bin_present,
             ATTR_MISSION_NAME: self.vacuum.get_mission_name(),
             ATTR_MISSION_STATE: self.vacuum.get_mission_state(),
-            ATTR_POSITION: self.vacuum.get_position()
+            ATTR_POSITION: self.vacuum.get_position(),
+            ATTR_STATUS: self._is_on
         }
         return attrs
 
