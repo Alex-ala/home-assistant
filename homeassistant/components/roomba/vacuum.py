@@ -65,6 +65,7 @@ async def async_setup_platform(
     password = config.get(CONF_PASSWORD)
     floorplan_path = config.get(CONF_FLOORPLAN)
     map_path = config.get(CONF_MAP)
+    offset = config.get(CONF_OFFSET)
 
     roomba = Controller(
         ip=host, blid=username, password=password)
@@ -77,7 +78,10 @@ async def async_setup_platform(
         raise PlatformNotReady
 
     if map_path is not None:
-        roomba.enable_mapping(image_drawmap_path=map_path, image_floorplan_path=floorplan_path)
+        if offset is not None:
+            roomba.enable_mapping(image_drawmap_path=map_path, image_floorplan_path=floorplan_path, map_offset=offset)
+        else:
+            roomba.enable_mapping(image_drawmap_path=map_path, image_floorplan_path=floorplan_path)
     roomba_vac = RoombaVacuum(name, roomba)
     hass.data[PLATFORM][host] = roomba_vac
 
