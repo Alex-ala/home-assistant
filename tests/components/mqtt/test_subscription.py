@@ -33,26 +33,22 @@ async def test_subscribe_topics(hass, mqtt_mock, caplog):
                          'msg_callback': record_calls2}})
 
     async_fire_mqtt_message(hass, 'test-topic1', 'test-payload1')
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
-    assert 'test-topic1' == calls1[0][0]
-    assert 'test-payload1' == calls1[0][1]
+    assert 'test-topic1' == calls1[0][0].topic
+    assert 'test-payload1' == calls1[0][0].payload
     assert 0 == len(calls2)
 
     async_fire_mqtt_message(hass, 'test-topic2', 'test-payload2')
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
     assert 1 == len(calls2)
-    assert 'test-topic2' == calls2[0][0]
-    assert 'test-payload2' == calls2[0][1]
+    assert 'test-topic2' == calls2[0][0].topic
+    assert 'test-payload2' == calls2[0][0].payload
 
     await async_unsubscribe_topics(hass, sub_state)
 
     async_fire_mqtt_message(hass, 'test-topic1', 'test-payload')
     async_fire_mqtt_message(hass, 'test-topic2', 'test-payload')
 
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
     assert 1 == len(calls2)
 
@@ -82,13 +78,10 @@ async def test_modify_topics(hass, mqtt_mock, caplog):
                          'msg_callback': record_calls2}})
 
     async_fire_mqtt_message(hass, 'test-topic1', 'test-payload')
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
     assert 0 == len(calls2)
 
     async_fire_mqtt_message(hass, 'test-topic2', 'test-payload')
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
     assert 1 == len(calls2)
 
@@ -99,17 +92,13 @@ async def test_modify_topics(hass, mqtt_mock, caplog):
 
     async_fire_mqtt_message(hass, 'test-topic1', 'test-payload')
     async_fire_mqtt_message(hass, 'test-topic2', 'test-payload')
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
     assert 1 == len(calls1)
     assert 1 == len(calls2)
 
     async_fire_mqtt_message(hass, 'test-topic1_1', 'test-payload')
-    await hass.async_block_till_done()
-    await hass.async_block_till_done()
     assert 2 == len(calls1)
-    assert 'test-topic1_1' == calls1[1][0]
-    assert 'test-payload' == calls1[1][1]
+    assert 'test-topic1_1' == calls1[1][0].topic
+    assert 'test-payload' == calls1[1][0].payload
     assert 1 == len(calls2)
 
     await async_unsubscribe_topics(hass, sub_state)
@@ -117,7 +106,6 @@ async def test_modify_topics(hass, mqtt_mock, caplog):
     async_fire_mqtt_message(hass, 'test-topic1_1', 'test-payload')
     async_fire_mqtt_message(hass, 'test-topic2', 'test-payload')
 
-    await hass.async_block_till_done()
     assert 2 == len(calls1)
     assert 1 == len(calls2)
 
