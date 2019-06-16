@@ -114,6 +114,7 @@ HM_ATTRIBUTE_SUPPORT = {
     'RSSI_PEER': ['rssi_peer', {}],
     'RSSI_DEVICE': ['rssi_device', {}],
     'VALVE_STATE': ['valve', {}],
+    'STATE': ['state', {}],
     'LEVEL': ['level', {}],
     'BATTERY_STATE': ['battery', {}],
     'CONTROL_MODE': ['mode', {
