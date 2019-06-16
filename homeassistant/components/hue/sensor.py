@@ -27,18 +27,29 @@ class HueLightLevel(GenericHueGaugeSensorEntity):
     """The light level sensor entity for a Hue motion sensor device."""
 
     device_class = DEVICE_CLASS_ILLUMINANCE
-    unit_of_measurement = "Lux"
+    unit_of_measurement = "lx"
 
     @property
     def state(self):
         """Return the state of the device."""
-        return self.sensor.lightlevel
+        if self.sensor.lightlevel is None:
+            return None
+
+        # https://developers.meethue.com/develop/hue-api/supported-devices/#clip_zll_lightlevel
+        # Light level in 10000 log10 (lux) +1 measured by sensor. Logarithm
+        # scale used because the human eye adjusts to light levels and small
+        # changes at low lux levels are more noticeable than at high lux
+        # levels.
+        return round(float(10 ** ((self.sensor.lightlevel - 1) / 10000)), 2)
 
     @property
     def device_state_attributes(self):
         """Return the device state attributes."""
         attributes = super().device_state_attributes
         attributes.update({
+            "lightlevel": self.sensor.lightlevel,
+            "daylight": self.sensor.daylight,
+            "dark": self.sensor.dark,
             "threshold_dark": self.sensor.tholddark,
             "threshold_offset": self.sensor.tholdoffset,
         })
@@ -54,4 +65,7 @@ class HueTemperature(GenericHueGaugeSensorEntity):
     @property
     def state(self):
         """Return the state of the device."""
+        if self.sensor.temperature is None:
+            return None
+
         return self.sensor.temperature / 100
