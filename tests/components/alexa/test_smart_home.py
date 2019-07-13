@@ -558,11 +558,22 @@ async def test_media_player_power(hass):
     assert_endpoint_capabilities(
         appliance,
         'Alexa.InputController',
+        'Alexa.PowerController',
         'Alexa.Speaker',
         'Alexa.StepSpeaker',
         'Alexa.PlaybackController',
         'Alexa.EndpointHealth',
     )
+
+    await assert_request_calls_service(
+        'Alexa.PowerController', 'TurnOn', 'media_player#test',
+        'media_player.media_play',
+        hass)
+
+    await assert_request_calls_service(
+        'Alexa.PowerController', 'TurnOff', 'media_player#test',
+        'media_player.media_stop',
+        hass)
 
 
 async def test_alert(hass):
@@ -823,14 +834,15 @@ async def test_thermostat(hass):
         'climate.test_thermostat',
         'cool',
         {
-            'operation_mode': 'cool',
             'temperature': 70.0,
             'target_temp_high': 80.0,
             'target_temp_low': 60.0,
             'current_temperature': 75.0,
             'friendly_name': "Test Thermostat",
             'supported_features': 1 | 2 | 4 | 128,
-            'operation_list': ['heat', 'cool', 'auto', 'off'],
+            'hvac_modes': ['heat', 'cool', 'auto', 'off'],
+            'preset_mode': None,
+            'preset_modes': ['eco'],
             'min_temp': 50,
             'max_temp': 90,
         }
@@ -948,22 +960,22 @@ async def test_thermostat(hass):
     # Setting mode, the payload can be an object with a value attribute...
     call, msg = await assert_request_calls_service(
         'Alexa.ThermostatController', 'SetThermostatMode',
-        'climate#test_thermostat', 'climate.set_operation_mode',
+        'climate#test_thermostat', 'climate.set_hvac_mode',
         hass,
         payload={'thermostatMode': {'value': 'HEAT'}}
     )
-    assert call.data['operation_mode'] == 'heat'
+    assert call.data['hvac_mode'] == 'heat'
     properties = ReportedProperties(msg['context']['properties'])
     properties.assert_equal(
         'Alexa.ThermostatController', 'thermostatMode', 'HEAT')
 
     call, msg = await assert_request_calls_service(
         'Alexa.ThermostatController', 'SetThermostatMode',
-        'climate#test_thermostat', 'climate.set_operation_mode',
+        'climate#test_thermostat', 'climate.set_hvac_mode',
         hass,
         payload={'thermostatMode': {'value': 'COOL'}}
     )
-    assert call.data['operation_mode'] == 'cool'
+    assert call.data['hvac_mode'] == 'cool'
     properties = ReportedProperties(msg['context']['properties'])
     properties.assert_equal(
         'Alexa.ThermostatController', 'thermostatMode', 'COOL')
@@ -971,18 +983,18 @@ async def test_thermostat(hass):
     # ...it can also be just the mode.
     call, msg = await assert_request_calls_service(
         'Alexa.ThermostatController', 'SetThermostatMode',
-        'climate#test_thermostat', 'climate.set_operation_mode',
+        'climate#test_thermostat', 'climate.set_hvac_mode',
         hass,
         payload={'thermostatMode': 'HEAT'}
     )
-    assert call.data['operation_mode'] == 'heat'
+    assert call.data['hvac_mode'] == 'heat'
     properties = ReportedProperties(msg['context']['properties'])
     properties.assert_equal(
         'Alexa.ThermostatController', 'thermostatMode', 'HEAT')
 
     msg = await assert_request_fails(
         'Alexa.ThermostatController', 'SetThermostatMode',
-        'climate#test_thermostat', 'climate.set_operation_mode',
+        'climate#test_thermostat', 'climate.set_hvac_mode',
         hass,
         payload={'thermostatMode': {'value': 'INVALID'}}
     )
@@ -991,11 +1003,20 @@ async def test_thermostat(hass):
 
     call, _ = await assert_request_calls_service(
         'Alexa.ThermostatController', 'SetThermostatMode',
-        'climate#test_thermostat', 'climate.set_operation_mode',
+        'climate#test_thermostat', 'climate.set_hvac_mode',
         hass,
         payload={'thermostatMode': 'OFF'}
     )
-    assert call.data['operation_mode'] == 'off'
+    assert call.data['hvac_mode'] == 'off'
+
+    # Assert we can call presets
+    call, msg = await assert_request_calls_service(
+        'Alexa.ThermostatController', 'SetThermostatMode',
+        'climate#test_thermostat', 'climate.set_preset_mode',
+        hass,
+        payload={'thermostatMode': 'ECO'}
+    )
+    assert call.data['preset_mode'] == 'eco'
 
 
 async def test_exclude_filters(hass):
@@ -1012,7 +1033,7 @@ async def test_exclude_filters(hass):
     hass.states.async_set(
         'cover.deny', 'off', {'friendly_name': "Blocked cover"})
 
-    alexa_config = MockConfig()
+    alexa_config = MockConfig(hass)
     alexa_config.should_expose = entityfilter.generate_filter(
         include_domains=[],
         include_entities=[],
@@ -1045,7 +1066,7 @@ async def test_include_filters(hass):
     hass.states.async_set(
         'group.allow', 'off', {'friendly_name': "Allowed group"})
 
-    alexa_config = MockConfig()
+    alexa_config = MockConfig(hass)
     alexa_config.should_expose = entityfilter.generate_filter(
         include_domains=['automation', 'group'],
         include_entities=['script.deny'],
@@ -1072,7 +1093,7 @@ async def test_never_exposed_entities(hass):
     hass.states.async_set(
         'group.allow', 'off', {'friendly_name': "Allowed group"})
 
-    alexa_config = MockConfig()
+    alexa_config = MockConfig(hass)
     alexa_config.should_expose = entityfilter.generate_filter(
         include_domains=['group'],
         include_entities=[],
@@ -1155,7 +1176,7 @@ async def test_entity_config(hass):
     hass.states.async_set(
         'light.test_1', 'on', {'friendly_name': "Test light 1"})
 
-    alexa_config = MockConfig()
+    alexa_config = MockConfig(hass)
     alexa_config.entity_config = {
         'light.test_1': {
             'name': 'Config name',
