@@ -168,6 +168,20 @@ class AlexaEntity:
             for prop in interface.serialize_properties():
                 yield prop
 
+    def serialize_discovery(self):
+        """Serialize the entity for discovery."""
+        return {
+            'displayCategories': self.display_categories(),
+            'cookie': {},
+            'endpointId': self.alexa_id(),
+            'friendlyName': self.friendly_name(),
+            'description': self.description(),
+            'manufacturerName': 'Home Assistant',
+            'capabilities': [
+                i.serialize_discovery() for i in self.interfaces()
+            ]
+        }
+
 
 @callback
 def async_get_entities(hass, config) -> List[AlexaEntity]:
@@ -234,9 +248,11 @@ class ClimateCapabilities(AlexaEntity):
 
     def interfaces(self):
         """Yield the supported interfaces."""
-        supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-        if supported & climate.SUPPORT_ON_OFF:
+        # If we support two modes, one being off, we allow turning on too.
+        if len([v for v in self.entity.attributes[climate.ATTR_HVAC_MODES]
+                if v != climate.HVAC_MODE_OFF]) == 1:
             yield AlexaPowerController(self.entity)
+
         yield AlexaThermostatController(self.hass, self.entity)
         yield AlexaTemperatureSensor(self.hass, self.entity)
         yield AlexaEndpointHealth(self.hass, self.entity)
@@ -323,15 +339,11 @@ class MediaPlayerCapabilities(AlexaEntity):
     def interfaces(self):
         """Yield the supported interfaces."""
         yield AlexaEndpointHealth(self.hass, self.entity)
+        yield AlexaPowerController(self.entity)
 
         supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
         if supported & media_player.const.SUPPORT_VOLUME_SET:
             yield AlexaSpeaker(self.entity)
-
-        power_features = (media_player.SUPPORT_TURN_ON |
-                          media_player.SUPPORT_TURN_OFF)
-        if supported & power_features:
-            yield AlexaPowerController(self.entity)
 
         step_volume_features = (media_player.const.SUPPORT_VOLUME_MUTE |
                                 media_player.const.SUPPORT_VOLUME_STEP)

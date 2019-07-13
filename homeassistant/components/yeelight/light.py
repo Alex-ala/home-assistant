@@ -28,15 +28,14 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORT_YEELIGHT = (SUPPORT_BRIGHTNESS |
                     SUPPORT_TRANSITION |
-                    SUPPORT_FLASH)
+                    SUPPORT_FLASH |
+                    SUPPORT_EFFECT)
 
 SUPPORT_YEELIGHT_WHITE_TEMP = (SUPPORT_YEELIGHT |
                                SUPPORT_COLOR_TEMP)
 
-SUPPORT_YEELIGHT_RGB = (SUPPORT_YEELIGHT |
-                        SUPPORT_COLOR |
-                        SUPPORT_EFFECT |
-                        SUPPORT_COLOR_TEMP)
+SUPPORT_YEELIGHT_RGB = (SUPPORT_YEELIGHT_WHITE_TEMP |
+                        SUPPORT_COLOR)
 
 ATTR_MODE = 'mode'
 
@@ -61,24 +60,33 @@ EFFECT_FACEBOOK = "Facebook"
 EFFECT_TWITTER = "Twitter"
 EFFECT_STOP = "Stop"
 
-YEELIGHT_EFFECT_LIST = [
-    EFFECT_DISCO,
+YEELIGHT_TEMP_ONLY_EFFECT_LIST = [
     EFFECT_TEMP,
+    EFFECT_STOP,
+]
+
+YEELIGHT_MONO_EFFECT_LIST = [
+    EFFECT_DISCO,
     EFFECT_STROBE,
-    EFFECT_STROBE_COLOR,
     EFFECT_ALARM,
-    EFFECT_POLICE,
     EFFECT_POLICE2,
+    EFFECT_WHATSAPP,
+    EFFECT_FACEBOOK,
+    EFFECT_TWITTER,
+    *YEELIGHT_TEMP_ONLY_EFFECT_LIST
+]
+
+YEELIGHT_COLOR_EFFECT_LIST = [
+    EFFECT_STROBE_COLOR,
+    EFFECT_POLICE,
     EFFECT_CHRISTMAS,
     EFFECT_RGB,
     EFFECT_RANDOM_LOOP,
     EFFECT_FAST_RANDOM_LOOP,
     EFFECT_LSD,
     EFFECT_SLOWDOWN,
-    EFFECT_WHATSAPP,
-    EFFECT_FACEBOOK,
-    EFFECT_TWITTER,
-    EFFECT_STOP]
+    *YEELIGHT_MONO_EFFECT_LIST
+]
 
 MODEL_TO_DEVICE_TYPE = {
     'mono': BulbType.White,
@@ -88,6 +96,8 @@ MODEL_TO_DEVICE_TYPE = {
     'color2': BulbType.Color,
     'strip1': BulbType.Color,
     'bslamp1': BulbType.Color,
+    'RGBW': BulbType.Color,
+    'lamp1': BulbType.WhiteTemp,
     'ceiling1': BulbType.WhiteTemp,
     'ceiling2': BulbType.WhiteTemp,
     'ceiling3': BulbType.WhiteTemp,
@@ -170,8 +180,10 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         _lights_setup_helper(YeelightWithAmbientLight)
         _lights_setup_helper(YeelightAmbientLight)
     else:
-        _LOGGER.error("Cannot determine device type for %s, %s",
-                      device.ipaddr, device.name)
+        _lights_setup_helper(YeelightGenericLight)
+        _LOGGER.warning("Cannot determine device type for %s, %s. "
+                        "Falling back to white only", device.ipaddr,
+                        device.name)
 
     hass.data[data_key] += lights
     add_entities(lights, True)
@@ -262,15 +274,15 @@ class YeelightGenericLight(Light):
     @property
     def effect_list(self):
         """Return the list of supported effects."""
-        return YEELIGHT_EFFECT_LIST + self.custom_effects_names
+        return self._predefined_effects + self.custom_effects_names
 
     @property
     def color_temp(self) -> int:
         """Return the color temperature."""
-        temp = self._get_property('ct')
-        if temp:
-            self._color_temp = temp
-        return kelvin_to_mired(int(self._color_temp))
+        temp_in_k = self._get_property('ct')
+        if temp_in_k:
+            self._color_temp = kelvin_to_mired(int(temp_in_k))
+        return self._color_temp
 
     @property
     def name(self) -> str:
@@ -341,6 +353,10 @@ class YeelightGenericLight(Light):
     @property
     def _power_property(self):
         return 'power'
+
+    @property
+    def _predefined_effects(self):
+        return YEELIGHT_MONO_EFFECT_LIST
 
     @property
     def device(self):
@@ -575,6 +591,10 @@ class YeelightColorLight(YeelightGenericLight):
         """Flag supported features."""
         return SUPPORT_YEELIGHT_RGB
 
+    @property
+    def _predefined_effects(self):
+        return YEELIGHT_COLOR_EFFECT_LIST
+
 
 class YeelightWhiteTempLight(YeelightGenericLight):
     """Representation of a Color Yeelight light."""
@@ -587,6 +607,10 @@ class YeelightWhiteTempLight(YeelightGenericLight):
     @property
     def _brightness_property(self):
         return 'current_brightness'
+
+    @property
+    def _predefined_effects(self):
+        return YEELIGHT_TEMP_ONLY_EFFECT_LIST
 
 
 class YeelightWithAmbientLight(YeelightWhiteTempLight):

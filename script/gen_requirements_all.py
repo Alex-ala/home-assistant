@@ -24,7 +24,7 @@ COMMENT_REQUIREMENTS = (
     'face_recognition',
     'fritzconnection',
     'i2csense',
-    'opencv-python',
+    'opencv-python-headless',
     'py_noaa',
     'VL53L1X2',
     'pybluez',
@@ -49,8 +49,10 @@ TEST_REQUIREMENTS = (
     'aioesphomeapi',
     'aiohttp_cors',
     'aiohue',
+    'aionotion',
     'aiounifi',
     'aioswitcher',
+    'aiowwlln',
     'apns2',
     'aprslib',
     'av',
@@ -70,6 +72,7 @@ TEST_REQUIREMENTS = (
     'geopy',
     'georss_generic_client',
     'georss_ign_sismologia_client',
+    'georss_qld_bushfire_alert_client',
     'google-api-python-client',
     'gTTS-token',
     'ha-ffmpeg',
@@ -89,6 +92,7 @@ TEST_REQUIREMENTS = (
     'libpurecool',
     'libsoundtouch',
     'luftdaten',
+    'pyMetno',
     'mbddns',
     'mficlient',
     'netdisco',
@@ -261,7 +265,7 @@ def gather_requirements_from_manifests(errors, reqs):
 
         if not integration.manifest:
             errors.append(
-                'The manifest for component {} is invalid.'.format(domain)
+                'The manifest for integration {} is invalid.'.format(domain)
             )
             continue
 
