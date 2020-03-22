@@ -1,0 +1,12 @@
+{
+  "domain": "roombai7",
+  "name": "iRobot Roomba i7",
+  "documentation": "https://www.home-assistant.io/integrations/roomba",
+  "requirements": [
+    "roombai7==1.0"
+  ],
+  "dependencies": [],
+  "codeowners": [
+    "@alex-ala"
+  ]
+}
