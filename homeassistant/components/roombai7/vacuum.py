@@ -83,7 +83,7 @@ async def async_setup_platform(
             roombai7.enable_mapping(image_drawmap_path=map_path, image_floorplan_path=floorplan_path, map_offset=offset)
         else:
             roombai7.enable_mapping(image_drawmap_path=map_path, image_floorplan_path=floorplan_path)
-    roombai7_vac = RoombaVacuum(name, roombai7)
+    roombai7_vac = Roombai7Vacuum(name, roombai7)
     hass.data[PLATFORM][host] = roombai7_vac
 
     async_add_entities([roombai7_vac], True)
