@@ -144,6 +144,7 @@ HM_DEVICE_TYPES = {
         "TiltIP",
         "IPShutterContactSabotage",
         "IPContact",
+        "IPThermostatWall230V"
     ],
     DISCOVER_COVER: ["Blind", "KeyBlind", "IPKeyBlind", "IPKeyBlindTilt"],
     DISCOVER_LOCKS: ["KeyMatic"],
