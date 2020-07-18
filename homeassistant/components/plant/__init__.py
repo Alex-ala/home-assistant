@@ -10,6 +10,7 @@ from homeassistant.components.recorder.util import execute, session_scope
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     ATTR_UNIT_OF_MEASUREMENT,
+    CONDUCTIVITY,
     CONF_SENSORS,
     STATE_OK,
     STATE_PROBLEM,
@@ -23,7 +24,7 @@ from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ class Plant(Entity):
             "max": CONF_MAX_MOISTURE,
         },
         READING_CONDUCTIVITY: {
-            ATTR_UNIT_OF_MEASUREMENT: "µS/cm",
+            ATTR_UNIT_OF_MEASUREMENT: CONDUCTIVITY,
             "min": CONF_MIN_CONDUCTIVITY,
             "max": CONF_MAX_CONDUCTIVITY,
         },
@@ -161,9 +162,9 @@ class Plant(Entity):
     def __init__(self, name, config):
         """Initialize the Plant component."""
         self._config = config
-        self._sensormap = dict()
-        self._readingmap = dict()
-        self._unit_of_measurement = dict()
+        self._sensormap = {}
+        self._readingmap = {}
+        self._unit_of_measurement = {}
         for reading, entity_id in config["sensors"].items():
             self._sensormap[entity_id] = reading
             self._readingmap[reading] = entity_id
@@ -182,11 +183,15 @@ class Plant(Entity):
         self._brightness_history = DailyHistory(self._conf_check_days)
 
     @callback
-    def state_changed(self, entity_id, _, new_state):
-        """Update the sensor status.
+    def _state_changed_event(self, event):
+        """Sensor state change event."""
+        self.state_changed(event.data.get("entity_id"), event.data.get("new_state"))
 
-        This callback is triggered, when the sensor state changes.
-        """
+    @callback
+    def state_changed(self, entity_id, new_state):
+        """Update the sensor status."""
+        if new_state is None:
+            return
         value = new_state.state
         _LOGGER.debug("Received callback from %s with value %s", entity_id, value)
         if value == STATE_UNKNOWN:
@@ -255,7 +260,7 @@ class Plant(Entity):
             self._state = STATE_OK
             self._problems = PROBLEM_NONE
         _LOGGER.debug("New data processed")
-        self.async_schedule_update_ha_state()
+        self.async_write_ha_state()
 
     def _check_min(self, sensor_name, value, params):
         """If configured, check the value against the defined minimum value."""
@@ -278,12 +283,14 @@ class Plant(Entity):
             # only use the database if it's configured
             self.hass.async_add_job(self._load_history_from_db)
 
-        async_track_state_change(self.hass, list(self._sensormap), self.state_changed)
+        async_track_state_change_event(
+            self.hass, list(self._sensormap), self._state_changed_event
+        )
 
         for entity_id in self._sensormap:
             state = self.hass.states.get(entity_id)
             if state is not None:
-                self.state_changed(entity_id, None, state)
+                self.state_changed(entity_id, state)
 
     async def _load_history_from_db(self):
         """Load the history of the brightness values from the database.
@@ -310,7 +317,7 @@ class Plant(Entity):
                 )
                 .order_by(States.last_updated.asc())
             )
-            states = execute(query)
+            states = execute(query, to_native=True, validate_entity_ids=False)
 
             for state in states:
                 # filter out all None, NaN and "unknown" states
@@ -322,7 +329,7 @@ class Plant(Entity):
                 except ValueError:
                     pass
         _LOGGER.debug("Initializing from database completed")
-        self.async_schedule_update_ha_state()
+        self.async_write_ha_state()
 
     @property
     def should_poll(self):
@@ -371,7 +378,7 @@ class DailyHistory:
         """Create new DailyHistory with a maximum length of the history."""
         self.max_length = max_length
         self._days = None
-        self._max_dict = dict()
+        self._max_dict = {}
         self.max = None
 
     def add_measurement(self, value, timestamp=None):

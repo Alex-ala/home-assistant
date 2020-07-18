@@ -7,7 +7,7 @@ from homeassistant.components.alarm_control_panel import (
     ENTITY_ID_FORMAT,
     FORMAT_NUMBER,
     PLATFORM_SCHEMA,
-    AlarmControlPanel,
+    AlarmControlPanelEntity,
 )
 from homeassistant.components.alarm_control_panel.const import (
     SUPPORT_ALARM_ARM_AWAY,
@@ -32,7 +32,7 @@ from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import async_generate_entity_id
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.script import Script
 
 _LOGGER = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities(alarm_control_panels)
 
 
-class AlarmControlPanelTemplate(AlarmControlPanel):
+class AlarmControlPanelTemplate(AlarmControlPanelEntity):
     """Representation of a templated Alarm Control Panel."""
 
     def __init__(
@@ -204,15 +204,16 @@ class AlarmControlPanelTemplate(AlarmControlPanel):
         """Register callbacks."""
 
         @callback
-        def template_alarm_state_listener(entity, old_state, new_state):
+        def template_alarm_state_listener(event):
             """Handle target device state changes."""
             self.async_schedule_update_ha_state(True)
 
         @callback
         def template_alarm_control_panel_startup(event):
             """Update template on startup."""
-            if self._template is not None:
-                async_track_state_change(
+            if self._template is not None and self._entities != MATCH_ALL:
+                # Track state change only for valid templates
+                async_track_state_change_event(
                     self.hass, self._entities, template_alarm_state_listener
                 )
 
@@ -236,7 +237,7 @@ class AlarmControlPanelTemplate(AlarmControlPanel):
             _LOGGER.error("No script action defined for %s", state)
 
         if optimistic_set:
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
 
     async def async_alarm_arm_away(self, code=None):
         """Arm the panel to Away."""

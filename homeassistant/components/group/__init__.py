@@ -32,7 +32,7 @@ from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity, async_generate_entity_id
 from homeassistant.helpers.entity_component import EntityComponent
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.loader import bind_hass
 
@@ -174,7 +174,7 @@ def get_entity_ids(
     if not domain_filter:
         return cast(List[str], entity_ids)
 
-    domain_filter = domain_filter.lower() + "."
+    domain_filter = f"{domain_filter.lower()}."
 
     return [ent_id for ent_id in entity_ids if ent_id.startswith(domain_filter)]
 
@@ -289,7 +289,7 @@ async def async_setup(hass, config):
                 need_update = True
 
             if need_update:
-                await group.async_update_ha_state()
+                group.async_write_ha_state()
 
             return
 
@@ -364,7 +364,7 @@ class Group(Entity):
         if entity_ids:
             self.tracking = tuple(ent_id.lower() for ent_id in entity_ids)
         else:
-            self.tracking = tuple()
+            self.tracking = ()
         self.group_on = None
         self.group_off = None
         self.user_defined = user_defined
@@ -499,7 +499,7 @@ class Group(Entity):
         This method must be run in the event loop.
         """
         if self._async_unsub_state_changed is None:
-            self._async_unsub_state_changed = async_track_state_change(
+            self._async_unsub_state_changed = async_track_state_change_event(
                 self.hass, self.tracking, self._async_state_changed_listener
             )
 
@@ -528,7 +528,7 @@ class Group(Entity):
             self._async_unsub_state_changed()
             self._async_unsub_state_changed = None
 
-    async def _async_state_changed_listener(self, entity_id, old_state, new_state):
+    async def _async_state_changed_listener(self, event):
         """Respond to a member state changing.
 
         This method must be run in the event loop.
@@ -537,8 +537,8 @@ class Group(Entity):
         if self._async_unsub_state_changed is None:
             return
 
-        self._async_update_group_state(new_state)
-        await self.async_update_ha_state()
+        self._async_update_group_state(event.data.get("new_state"))
+        self.async_write_ha_state()
 
     @property
     def _tracking_states(self):

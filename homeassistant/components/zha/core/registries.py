@@ -3,21 +3,12 @@ import collections
 from typing import Callable, Dict, List, Set, Tuple, Union
 
 import attr
-import bellows.ezsp
-import bellows.zigbee.application
 import zigpy.profiles.zha
 import zigpy.profiles.zll
 import zigpy.zcl as zcl
-import zigpy_cc.api
-import zigpy_cc.zigbee.application
-import zigpy_deconz.api
-import zigpy_deconz.zigbee.application
-import zigpy_xbee.api
-import zigpy_xbee.zigbee.application
-import zigpy_zigate.api
-import zigpy_zigate.zigbee.application
 
 from homeassistant.components.binary_sensor import DOMAIN as BINARY_SENSOR
+from homeassistant.components.climate import DOMAIN as CLIMATE
 from homeassistant.components.cover import DOMAIN as COVER
 from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER
 from homeassistant.components.fan import DOMAIN as FAN
@@ -28,9 +19,12 @@ from homeassistant.components.switch import DOMAIN as SWITCH
 
 # importing channels updates registries
 from . import channels as zha_channels  # noqa: F401 pylint: disable=unused-import
-from .const import CONTROLLER, ZHA_GW_RADIO, ZHA_GW_RADIO_DESCRIPTION, RadioType
 from .decorators import CALLABLE_T, DictRegistry, SetRegistry
 from .typing import ChannelType
+
+GROUP_ENTITY_DOMAINS = [LIGHT, SWITCH, FAN]
+
+PHILLIPS_REMOTE_CLUSTER = 0xFC00
 
 SMARTTHINGS_ACCELERATION_CLUSTER = 0xFC02
 SMARTTHINGS_ARRIVAL_SENSOR_DEVICE_TYPE = 0x8000
@@ -93,21 +87,24 @@ BINARY_SENSOR_CLUSTERS.add(SMARTTHINGS_ACCELERATION_CLUSTER)
 
 BINDABLE_CLUSTERS = SetRegistry()
 CHANNEL_ONLY_CLUSTERS = SetRegistry()
+CLIMATE_CLUSTERS = SetRegistry()
 CUSTOM_CLUSTER_MAPPINGS = {}
 
 DEVICE_CLASS = {
     zigpy.profiles.zha.PROFILE_ID: {
         SMARTTHINGS_ARRIVAL_SENSOR_DEVICE_TYPE: DEVICE_TRACKER,
+        zigpy.profiles.zha.DeviceType.THERMOSTAT: CLIMATE,
         zigpy.profiles.zha.DeviceType.COLOR_DIMMABLE_LIGHT: LIGHT,
         zigpy.profiles.zha.DeviceType.COLOR_TEMPERATURE_LIGHT: LIGHT,
         zigpy.profiles.zha.DeviceType.DIMMABLE_BALLAST: LIGHT,
         zigpy.profiles.zha.DeviceType.DIMMABLE_LIGHT: LIGHT,
         zigpy.profiles.zha.DeviceType.DIMMABLE_PLUG_IN_UNIT: LIGHT,
         zigpy.profiles.zha.DeviceType.EXTENDED_COLOR_LIGHT: LIGHT,
-        zigpy.profiles.zha.DeviceType.LEVEL_CONTROLLABLE_OUTPUT: LIGHT,
+        zigpy.profiles.zha.DeviceType.LEVEL_CONTROLLABLE_OUTPUT: COVER,
         zigpy.profiles.zha.DeviceType.ON_OFF_BALLAST: SWITCH,
         zigpy.profiles.zha.DeviceType.ON_OFF_LIGHT: LIGHT,
         zigpy.profiles.zha.DeviceType.ON_OFF_PLUG_IN_UNIT: SWITCH,
+        zigpy.profiles.zha.DeviceType.SHADE: COVER,
         zigpy.profiles.zha.DeviceType.SMART_PLUG: SWITCH,
     },
     zigpy.profiles.zll.PROFILE_ID: {
@@ -127,36 +124,9 @@ LIGHT_CLUSTERS = SetRegistry()
 OUTPUT_CHANNEL_ONLY_CLUSTERS = SetRegistry()
 CLIENT_CHANNELS_REGISTRY = DictRegistry()
 
-RADIO_TYPES = {
-    RadioType.deconz.name: {
-        ZHA_GW_RADIO: zigpy_deconz.api.Deconz,
-        CONTROLLER: zigpy_deconz.zigbee.application.ControllerApplication,
-        ZHA_GW_RADIO_DESCRIPTION: "Deconz",
-    },
-    RadioType.ezsp.name: {
-        ZHA_GW_RADIO: bellows.ezsp.EZSP,
-        CONTROLLER: bellows.zigbee.application.ControllerApplication,
-        ZHA_GW_RADIO_DESCRIPTION: "EZSP",
-    },
-    RadioType.ti_cc.name: {
-        ZHA_GW_RADIO: zigpy_cc.api.API,
-        CONTROLLER: zigpy_cc.zigbee.application.ControllerApplication,
-        ZHA_GW_RADIO_DESCRIPTION: "TI CC",
-    },
-    RadioType.xbee.name: {
-        ZHA_GW_RADIO: zigpy_xbee.api.XBee,
-        CONTROLLER: zigpy_xbee.zigbee.application.ControllerApplication,
-        ZHA_GW_RADIO_DESCRIPTION: "XBee",
-    },
-    RadioType.zigate.name: {
-        ZHA_GW_RADIO: zigpy_zigate.api.ZiGate,
-        CONTROLLER: zigpy_zigate.zigbee.application.ControllerApplication,
-        ZHA_GW_RADIO_DESCRIPTION: "ZiGate",
-    },
-}
-
 COMPONENT_CLUSTERS = {
     BINARY_SENSOR: BINARY_SENSOR_CLUSTERS,
+    CLIMATE: CLIMATE_CLUSTERS,
     DEVICE_TRACKER: DEVICE_TRACKER_CLUSTERS,
     LIGHT: LIGHT_CLUSTERS,
     SWITCH: SWITCH_CLUSTERS,
@@ -275,6 +245,9 @@ RegistryDictType = Dict[
 ]  # pylint: disable=invalid-name
 
 
+GroupRegistryDictType = Dict[str, CALLABLE_T]  # pylint: disable=invalid-name
+
+
 class ZHAEntityRegistry:
     """Channel to ZHA Entity mapping."""
 
@@ -282,6 +255,7 @@ class ZHAEntityRegistry:
         """Initialize Registry instance."""
         self._strict_registry: RegistryDictType = collections.defaultdict(dict)
         self._loose_registry: RegistryDictType = collections.defaultdict(dict)
+        self._group_registry: GroupRegistryDictType = {}
 
     def get_entity(
         self,
@@ -299,6 +273,10 @@ class ZHAEntityRegistry:
                 return self._strict_registry[component][match], claimed
 
         return default, []
+
+    def get_group_entity(self, component: str) -> CALLABLE_T:
+        """Match a ZHA group to a ZHA Entity class."""
+        return self._group_registry.get(component)
 
     def strict_match(
         self,
@@ -347,6 +325,16 @@ class ZHAEntityRegistry:
             """
             self._loose_registry[component][rule] = zha_entity
             return zha_entity
+
+        return decorator
+
+    def group_match(self, component: str) -> Callable[[CALLABLE_T], CALLABLE_T]:
+        """Decorate a group match rule."""
+
+        def decorator(zha_ent: CALLABLE_T) -> CALLABLE_T:
+            """Register a group match rule."""
+            self._group_registry[component] = zha_ent
+            return zha_ent
 
         return decorator
 

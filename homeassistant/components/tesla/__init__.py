@@ -15,10 +15,12 @@ from homeassistant.const import (
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_USERNAME,
+    DEVICE_CLASS_BATTERY,
 )
 from homeassistant.core import callback
 from homeassistant.helpers import aiohttp_client, config_validation as cv
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.icon import icon_for_battery_level
 from homeassistant.util import slugify
 
 from .config_flow import (
@@ -28,8 +30,10 @@ from .config_flow import (
     validate_input,
 )
 from .const import (
+    CONF_WAKE_ON_START,
     DATA_LISTENER,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_WAKE_ON_START,
     DOMAIN,
     ICONS,
     MIN_SCAN_INTERVAL,
@@ -71,7 +75,10 @@ async def async_setup(hass, base_config):
 
     def _update_entry(email, data=None, options=None):
         data = data or {}
-        options = options or {CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL}
+        options = options or {
+            CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+            CONF_WAKE_ON_START: DEFAULT_WAKE_ON_START,
+        }
         for entry in hass.config_entries.async_entries(DOMAIN):
             if email != entry.title:
                 continue
@@ -131,7 +138,11 @@ async def async_setup_entry(hass, config_entry):
                 CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
             ),
         )
-        (refresh_token, access_token) = await controller.connect()
+        (refresh_token, access_token) = await controller.connect(
+            wake_if_asleep=config_entry.options.get(
+                CONF_WAKE_ON_START, DEFAULT_WAKE_ON_START
+            )
+        )
     except TeslaException as ex:
         _LOGGER.error("Unable to communicate with Tesla API: %s", ex.message)
         return False
@@ -141,7 +152,7 @@ async def async_setup_entry(hass, config_entry):
         "devices": defaultdict(list),
         DATA_LISTENER: [config_entry.add_update_listener(update_listener)],
     }
-    _LOGGER.debug("Connected to the Tesla API.")
+    _LOGGER.debug("Connected to the Tesla API")
     all_devices = entry_data["controller"].get_homeassistant_components()
 
     if not all_devices:
@@ -212,6 +223,15 @@ class TeslaDevice(Entity):
     @property
     def icon(self):
         """Return the icon of the sensor."""
+        if (
+            self.device_class == DEVICE_CLASS_BATTERY
+            and self.tesla_device.has_battery()
+        ):
+            return icon_for_battery_level(
+                battery_level=self.tesla_device.battery_level(),
+                charging=self.tesla_device.battery_charging(),
+            )
+
         return self._icon
 
     @property
@@ -241,11 +261,9 @@ class TeslaDevice(Entity):
 
     async def async_added_to_hass(self):
         """Register state update callback."""
-        pass
 
     async def async_will_remove_from_hass(self):
         """Prepare for unload."""
-        pass
 
     async def async_update(self):
         """Update the state of the device."""

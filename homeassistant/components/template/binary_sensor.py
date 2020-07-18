@@ -7,7 +7,7 @@ from homeassistant.components.binary_sensor import (
     DEVICE_CLASSES_SCHEMA,
     ENTITY_ID_FORMAT,
     PLATFORM_SCHEMA,
-    BinarySensorDevice,
+    BinarySensorEntity,
 )
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -24,7 +24,10 @@ from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import async_generate_entity_id
-from homeassistant.helpers.event import async_track_same_state, async_track_state_change
+from homeassistant.helpers.event import (
+    async_track_same_state,
+    async_track_state_change_event,
+)
 
 from . import extract_entities, initialise_templates
 from .const import CONF_AVAILABILITY_TEMPLATE
@@ -107,7 +110,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     async_add_entities(sensors)
 
 
-class BinarySensorTemplate(BinarySensorDevice):
+class BinarySensorTemplate(BinarySensorEntity):
     """A virtual binary sensor that triggers from another sensor."""
 
     def __init__(
@@ -148,7 +151,7 @@ class BinarySensorTemplate(BinarySensorDevice):
         """Register callbacks."""
 
         @callback
-        def template_bsensor_state_listener(entity, old_state, new_state):
+        def template_bsensor_state_listener(event):
             """Handle the target device state changes."""
             self.async_check_state()
 
@@ -157,7 +160,7 @@ class BinarySensorTemplate(BinarySensorDevice):
             """Update template on startup."""
             if self._entities != MATCH_ALL:
                 # Track state change only for valid templates
-                async_track_state_change(
+                async_track_state_change_event(
                     self.hass, self._entities, template_bsensor_state_listener
                 )
 
@@ -255,7 +258,7 @@ class BinarySensorTemplate(BinarySensorDevice):
                 ):
                     # Common during HA startup - so just a warning
                     _LOGGER.warning(
-                        "Could not render %s template %s, the state is unknown.",
+                        "Could not render %s template %s, the state is unknown",
                         friendly_property_name,
                         self._name,
                     )
@@ -283,7 +286,7 @@ class BinarySensorTemplate(BinarySensorDevice):
         def set_state():
             """Set state of template binary sensor."""
             self._state = state
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
 
         # state without delay
         if (state and not self._delay_on) or (not state and not self._delay_off):

@@ -1,6 +1,6 @@
 """Provides device automations for MQTT."""
 import logging
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import attr
 import voluptuous as vol
@@ -26,6 +26,7 @@ from . import (
     CONF_QOS,
     DOMAIN,
     cleanup_device_registry,
+    debug_info,
 )
 from .discovery import MQTT_DISCOVERY_UPDATED, clear_discovery_hash
 
@@ -74,10 +75,10 @@ DEVICE_TRIGGERS = "mqtt_device_triggers"
 class TriggerInstance:
     """Attached trigger settings."""
 
-    action = attr.ib(type=AutomationActionType)
-    automation_info = attr.ib(type=dict)
-    trigger = attr.ib(type="Trigger")
-    remove = attr.ib(type=CALLBACK_TYPE, default=None)
+    action: AutomationActionType = attr.ib()
+    automation_info: dict = attr.ib()
+    trigger: "Trigger" = attr.ib()
+    remove: Optional[CALLBACK_TYPE] = attr.ib(default=None)
 
     async def async_attach_trigger(self):
         """Attach MQTT trigger."""
@@ -100,16 +101,16 @@ class TriggerInstance:
 class Trigger:
     """Device trigger settings."""
 
-    device_id = attr.ib(type=str)
-    discovery_data = attr.ib(type=dict)
-    hass = attr.ib(type=HomeAssistantType)
-    payload = attr.ib(type=str)
-    qos = attr.ib(type=int)
-    remove_signal = attr.ib(type=Callable[[], None])
-    subtype = attr.ib(type=str)
-    topic = attr.ib(type=str)
-    type = attr.ib(type=str)
-    trigger_instances = attr.ib(type=[TriggerInstance], default=attr.Factory(list))
+    device_id: str = attr.ib()
+    discovery_data: dict = attr.ib()
+    hass: HomeAssistantType = attr.ib()
+    payload: str = attr.ib()
+    qos: int = attr.ib()
+    remove_signal: Callable[[], None] = attr.ib()
+    subtype: str = attr.ib()
+    topic: str = attr.ib()
+    type: str = attr.ib()
+    trigger_instances: List[TriggerInstance] = attr.ib(factory=list)
 
     async def add_trigger(self, action, automation_info):
         """Add MQTT trigger."""
@@ -137,13 +138,17 @@ class Trigger:
         self.remove_signal = remove_signal
         self.type = config[CONF_TYPE]
         self.subtype = config[CONF_SUBTYPE]
-        self.topic = config[CONF_TOPIC]
         self.payload = config[CONF_PAYLOAD]
         self.qos = config[CONF_QOS]
+        topic_changed = self.topic != config[CONF_TOPIC]
+        self.topic = config[CONF_TOPIC]
 
-        # Unsubscribe+subscribe if this trigger is in use
-        for trig in self.trigger_instances:
-            await trig.async_attach_trigger()
+        # Unsubscribe+subscribe if this trigger is in use and topic has changed
+        # If topic is same unsubscribe+subscribe will execute in the wrong order
+        # because unsubscribe is done with help of async_create_task
+        if topic_changed:
+            for trig in self.trigger_instances:
+                await trig.async_attach_trigger()
 
     def detach_trigger(self):
         """Remove MQTT device trigger."""
@@ -183,6 +188,7 @@ async def async_setup_trigger(hass, config, config_entry, discovery_data):
         if not payload:
             # Empty payload: Remove trigger
             _LOGGER.info("Removing trigger: %s", discovery_hash)
+            debug_info.remove_trigger_discovery_data(hass, discovery_hash)
             if discovery_id in hass.data[DEVICE_TRIGGERS]:
                 device_trigger = hass.data[DEVICE_TRIGGERS][discovery_id]
                 device_trigger.detach_trigger()
@@ -192,6 +198,7 @@ async def async_setup_trigger(hass, config, config_entry, discovery_data):
         else:
             # Non-empty payload: Update trigger
             _LOGGER.info("Updating trigger: %s", discovery_hash)
+            debug_info.update_trigger_discovery_data(hass, discovery_hash, payload)
             config = TRIGGER_DISCOVERY_SCHEMA(payload)
             await _update_device(hass, config_entry, config)
             device_trigger = hass.data[DEVICE_TRIGGERS][discovery_id]
@@ -230,6 +237,9 @@ async def async_setup_trigger(hass, config, config_entry, discovery_data):
         await hass.data[DEVICE_TRIGGERS][discovery_id].update_trigger(
             config, discovery_hash, remove_signal
         )
+    debug_info.add_trigger_discovery_data(
+        hass, discovery_hash, discovery_data, device.id
+    )
 
 
 async def async_device_removed(hass: HomeAssistant, device_id: str):
@@ -241,6 +251,7 @@ async def async_device_removed(hass: HomeAssistant, device_id: str):
             discovery_hash = device_trigger.discovery_data[ATTR_DISCOVERY_HASH]
             discovery_topic = device_trigger.discovery_data[ATTR_DISCOVERY_TOPIC]
 
+            debug_info.remove_trigger_discovery_data(hass, discovery_hash)
             device_trigger.detach_trigger()
             clear_discovery_hash(hass, discovery_hash)
             device_trigger.remove_signal()

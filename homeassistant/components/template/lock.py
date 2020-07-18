@@ -3,7 +3,7 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components.lock import PLATFORM_SCHEMA, LockDevice
+from homeassistant.components.lock import PLATFORM_SCHEMA, LockEntity
 from homeassistant.const import (
     CONF_NAME,
     CONF_OPTIMISTIC,
@@ -16,7 +16,7 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.script import Script
 
 from . import extract_entities, initialise_templates
@@ -72,7 +72,7 @@ async def async_setup_platform(hass, config, async_add_devices, discovery_info=N
     )
 
 
-class TemplateLock(LockDevice):
+class TemplateLock(LockEntity):
     """Representation of a template lock."""
 
     def __init__(
@@ -102,7 +102,7 @@ class TemplateLock(LockDevice):
         """Register callbacks."""
 
         @callback
-        def template_lock_state_listener(entity, old_state, new_state):
+        def template_lock_state_listener(event):
             """Handle target device state changes."""
             self.async_schedule_update_ha_state(True)
 
@@ -111,7 +111,7 @@ class TemplateLock(LockDevice):
             """Update template on startup."""
             if self._state_entities != MATCH_ALL:
                 # Track state change only for valid templates
-                async_track_state_change(
+                async_track_state_change_event(
                     self._hass, self._state_entities, template_lock_state_listener
                 )
             self.async_schedule_update_ha_state(True)
@@ -174,12 +174,12 @@ class TemplateLock(LockDevice):
         """Lock the device."""
         if self._optimistic:
             self._state = True
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
         await self._command_lock.async_run(context=self._context)
 
     async def async_unlock(self, **kwargs):
         """Unlock the device."""
         if self._optimistic:
             self._state = False
-            self.async_schedule_update_ha_state()
+            self.async_write_ha_state()
         await self._command_unlock.async_run(context=self._context)

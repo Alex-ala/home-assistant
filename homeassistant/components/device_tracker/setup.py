@@ -35,9 +35,9 @@ class DeviceTrackerPlatform:
         "setup_scanner",
     )
 
-    name = attr.ib(type=str)
-    platform = attr.ib(type=ModuleType)
-    config = attr.ib(type=Dict)
+    name: str = attr.ib()
+    platform: ModuleType = attr.ib()
+    config: Dict = attr.ib()
 
     @property
     def type(self):
@@ -170,7 +170,7 @@ def async_setup_scanner_platform(
             try:
                 extra_attributes = await scanner.async_get_extra_attributes(mac)
             except NotImplementedError:
-                extra_attributes = dict()
+                extra_attributes = {}
 
             kwargs = {
                 "mac": mac,
