@@ -3,15 +3,17 @@ from datetime import timedelta
 import time
 from unittest import mock
 
-import asynctest
 import pytest
 import zigpy.zcl.clusters.general as general
 
 import homeassistant.components.zha.core.device as zha_core_device
+from homeassistant.const import STATE_OFF, STATE_UNAVAILABLE
+import homeassistant.helpers.device_registry as ha_dev_reg
 import homeassistant.util.dt as dt_util
 
-from .common import async_enable_traffic
+from .common import async_enable_traffic, make_zcl_header
 
+from tests.async_mock import patch
 from tests.common import async_fire_time_changed
 
 
@@ -63,13 +65,33 @@ def device_without_basic_channel(zigpy_device):
     return zigpy_device(with_basic_channel=False)
 
 
+@pytest.fixture
+async def ota_zha_device(zha_device_restored, zigpy_device_mock):
+    """ZHA device with OTA cluster fixture."""
+    zigpy_dev = zigpy_device_mock(
+        {
+            1: {
+                "in_clusters": [general.Basic.cluster_id],
+                "out_clusters": [general.Ota.cluster_id],
+                "device_type": 0x1234,
+            }
+        },
+        "00:11:22:33:44:55:66:77",
+        "test manufacturer",
+        "test model",
+    )
+
+    zha_device = await zha_device_restored(zigpy_dev)
+    return zha_device
+
+
 def _send_time_changed(hass, seconds):
     """Send a time changed event."""
     now = dt_util.utcnow() + timedelta(seconds=seconds)
     async_fire_time_changed(hass, now)
 
 
-@asynctest.patch(
+@patch(
     "homeassistant.components.zha.core.channels.general.BasicChannel.async_initialize",
     new=mock.MagicMock(),
 )
@@ -86,13 +108,13 @@ async def test_check_available_success(
     basic_ch.read_attributes.reset_mock()
     device_with_basic_channel.last_seen = None
     assert zha_device.available is True
-    _send_time_changed(hass, zha_core_device._CONSIDER_UNAVAILABLE_MAINS + 2)
+    _send_time_changed(hass, zha_core_device.CONSIDER_UNAVAILABLE_MAINS + 2)
     await hass.async_block_till_done()
     assert zha_device.available is False
     assert basic_ch.read_attributes.await_count == 0
 
     device_with_basic_channel.last_seen = (
-        time.time() - zha_core_device._CONSIDER_UNAVAILABLE_MAINS - 2
+        time.time() - zha_core_device.CONSIDER_UNAVAILABLE_MAINS - 2
     )
     _seens = [time.time(), device_with_basic_channel.last_seen]
 
@@ -123,7 +145,7 @@ async def test_check_available_success(
     assert zha_device.available is True
 
 
-@asynctest.patch(
+@patch(
     "homeassistant.components.zha.core.channels.general.BasicChannel.async_initialize",
     new=mock.MagicMock(),
 )
@@ -141,7 +163,7 @@ async def test_check_available_unsuccessful(
     assert basic_ch.read_attributes.await_count == 0
 
     device_with_basic_channel.last_seen = (
-        time.time() - zha_core_device._CONSIDER_UNAVAILABLE_MAINS - 2
+        time.time() - zha_core_device.CONSIDER_UNAVAILABLE_MAINS - 2
     )
 
     # unsuccessfuly ping zigpy device, but zha_device is still available
@@ -166,7 +188,7 @@ async def test_check_available_unsuccessful(
     assert zha_device.available is False
 
 
-@asynctest.patch(
+@patch(
     "homeassistant.components.zha.core.channels.general.BasicChannel.async_initialize",
     new=mock.MagicMock(),
 )
@@ -182,7 +204,7 @@ async def test_check_available_no_basic_channel(
     assert zha_device.available is True
 
     device_without_basic_channel.last_seen = (
-        time.time() - zha_core_device._CONSIDER_UNAVAILABLE_BATTERY - 2
+        time.time() - zha_core_device.CONSIDER_UNAVAILABLE_BATTERY - 2
     )
 
     assert "does not have a mandatory basic cluster" not in caplog.text
@@ -190,3 +212,63 @@ async def test_check_available_no_basic_channel(
     await hass.async_block_till_done()
     assert zha_device.available is False
     assert "does not have a mandatory basic cluster" in caplog.text
+
+
+async def test_ota_sw_version(hass, ota_zha_device):
+    """Test device entry gets sw_version updated via OTA channel."""
+
+    ota_ch = ota_zha_device.channels.pools[0].client_channels["1:0x0019"]
+    dev_registry = await ha_dev_reg.async_get_registry(hass)
+    entry = dev_registry.async_get(ota_zha_device.device_id)
+    assert entry.sw_version is None
+
+    cluster = ota_ch.cluster
+    hdr = make_zcl_header(1, global_command=False)
+    sw_version = 0x2345
+    cluster.handle_message(hdr, [1, 2, 3, sw_version, None])
+    await hass.async_block_till_done()
+    entry = dev_registry.async_get(ota_zha_device.device_id)
+    assert int(entry.sw_version, base=16) == sw_version
+
+
+@pytest.mark.parametrize(
+    "device, last_seen_delta, is_available",
+    (
+        ("zigpy_device", 0, True),
+        ("zigpy_device", zha_core_device.CONSIDER_UNAVAILABLE_MAINS + 2, True,),
+        ("zigpy_device", zha_core_device.CONSIDER_UNAVAILABLE_BATTERY - 2, True,),
+        ("zigpy_device", zha_core_device.CONSIDER_UNAVAILABLE_BATTERY + 2, False,),
+        ("zigpy_device_mains", 0, True),
+        ("zigpy_device_mains", zha_core_device.CONSIDER_UNAVAILABLE_MAINS - 2, True,),
+        ("zigpy_device_mains", zha_core_device.CONSIDER_UNAVAILABLE_MAINS + 2, False,),
+        (
+            "zigpy_device_mains",
+            zha_core_device.CONSIDER_UNAVAILABLE_BATTERY - 2,
+            False,
+        ),
+        (
+            "zigpy_device_mains",
+            zha_core_device.CONSIDER_UNAVAILABLE_BATTERY + 2,
+            False,
+        ),
+    ),
+)
+async def test_device_restore_availability(
+    hass, request, device, last_seen_delta, is_available, zha_device_restored
+):
+    """Test initial availability for restored devices."""
+
+    zigpy_device = request.getfixturevalue(device)()
+    zha_device = await zha_device_restored(
+        zigpy_device, last_seen=time.time() - last_seen_delta
+    )
+    entity_id = "switch.fakemanufacturer_fakemodel_e769900a_on_off"
+
+    await hass.async_block_till_done()
+    # ensure the switch entity was created
+    assert hass.states.get(entity_id).state is not None
+    assert zha_device.available is is_available
+    if is_available:
+        assert hass.states.get(entity_id).state == STATE_OFF
+    else:
+        assert hass.states.get(entity_id).state == STATE_UNAVAILABLE

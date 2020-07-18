@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from homematicip.aio.device import (
     AsyncBrandSwitchMeasuring,
+    AsyncFullFlushInputSwitch,
     AsyncFullFlushSwitchMeasuring,
     AsyncHeatingSwitch2,
     AsyncMultiIOBox,
@@ -15,7 +16,7 @@ from homematicip.aio.device import (
 )
 from homematicip.aio.group import AsyncExtendedLinkedSwitchingGroup, AsyncSwitchingGroup
 
-from homeassistant.components.switch import SwitchDevice
+from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import HomeAssistantType
 
@@ -43,7 +44,12 @@ async def async_setup_entry(
         ):
             entities.append(HomematicipSwitchMeasuring(hap, device))
         elif isinstance(
-            device, (AsyncPlugableSwitch, AsyncPrintedCircuitBoardSwitchBattery)
+            device,
+            (
+                AsyncPlugableSwitch,
+                AsyncPrintedCircuitBoardSwitchBattery,
+                AsyncFullFlushInputSwitch,
+            ),
         ):
             entities.append(HomematicipSwitch(hap, device))
         elif isinstance(device, AsyncOpenCollector8Module):
@@ -67,7 +73,7 @@ async def async_setup_entry(
         async_add_entities(entities)
 
 
-class HomematicipSwitch(HomematicipGenericDevice, SwitchDevice):
+class HomematicipSwitch(HomematicipGenericDevice, SwitchEntity):
     """representation of a HomematicIP Cloud switch device."""
 
     def __init__(self, hap: HomematicipHAP, device) -> None:
@@ -88,7 +94,7 @@ class HomematicipSwitch(HomematicipGenericDevice, SwitchDevice):
         await self._device.turn_off()
 
 
-class HomematicipGroupSwitch(HomematicipGenericDevice, SwitchDevice):
+class HomematicipGroupSwitch(HomematicipGenericDevice, SwitchEntity):
     """representation of a HomematicIP switching group."""
 
     def __init__(self, hap: HomematicipHAP, device, post: str = "Group") -> None:
@@ -145,13 +151,21 @@ class HomematicipSwitchMeasuring(HomematicipSwitch):
         return round(self._device.energyCounter)
 
 
-class HomematicipMultiSwitch(HomematicipGenericDevice, SwitchDevice):
+class HomematicipMultiSwitch(HomematicipGenericDevice, SwitchEntity):
     """Representation of a HomematicIP Cloud multi switch device."""
 
     def __init__(self, hap: HomematicipHAP, device, channel: int) -> None:
         """Initialize the multi switch device."""
         self.channel = channel
         super().__init__(hap, device, f"Channel{channel}")
+
+    @property
+    def name(self) -> str:
+        """Return the name of the multi switch channel."""
+        label = self._get_label_by_channel(self.channel)
+        if label:
+            return label
+        return super().name
 
     @property
     def unique_id(self) -> str:

@@ -14,6 +14,7 @@ from homeassistant.const import (
     CONF_UNIT_SYSTEM,
     CONF_UNIT_SYSTEM_IMPERIAL,
     CONF_UNIT_SYSTEM_METRIC,
+    POWER_WATT,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
     TEMP_CELSIUS,
@@ -41,7 +42,7 @@ async def async_test_humidity(hass, cluster, entity_id):
 async def async_test_temperature(hass, cluster, entity_id):
     """Test temperature sensor."""
     await send_attributes_report(hass, cluster, {1: 1, 0: 2900, 2: 100})
-    assert_state(hass, entity_id, "29.0", "°C")
+    assert_state(hass, entity_id, "29.0", TEMP_CELSIUS)
 
 
 async def async_test_pressure(hass, cluster, entity_id):
@@ -76,17 +77,17 @@ async def async_test_electrical_measurement(hass, cluster, entity_id):
     ) as divisor_mock:
         divisor_mock.return_value = 1
         await send_attributes_report(hass, cluster, {0: 1, 1291: 100, 10: 1000})
-        assert_state(hass, entity_id, "100", "W")
+        assert_state(hass, entity_id, "100", POWER_WATT)
 
         await send_attributes_report(hass, cluster, {0: 1, 1291: 99, 10: 1000})
-        assert_state(hass, entity_id, "99", "W")
+        assert_state(hass, entity_id, "99", POWER_WATT)
 
         divisor_mock.return_value = 10
         await send_attributes_report(hass, cluster, {0: 1, 1291: 1000, 10: 5000})
-        assert_state(hass, entity_id, "100", "W")
+        assert_state(hass, entity_id, "100", POWER_WATT)
 
         await send_attributes_report(hass, cluster, {0: 1, 1291: 99, 10: 5000})
-        assert_state(hass, entity_id, "9.9", "W")
+        assert_state(hass, entity_id, "9.9", POWER_WATT)
 
 
 @pytest.mark.parametrize(
@@ -127,6 +128,8 @@ async def test_sensor(
     zha_device = await zha_device_joined_restored(zigpy_device)
     entity_id = await find_entity_id(DOMAIN, zha_device, hass)
 
+    await async_enable_traffic(hass, [zha_device], enabled=False)
+    await hass.async_block_till_done()
     # ensure the sensor entity was created
     assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
 
@@ -246,6 +249,7 @@ async def test_temp_uom(
     entity_id = await find_entity_id(DOMAIN, zha_device, hass)
 
     if not restore:
+        await async_enable_traffic(hass, [zha_device], enabled=False)
         assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
 
     # allow traffic to flow through the gateway and devices
@@ -261,3 +265,58 @@ async def test_temp_uom(
     assert state is not None
     assert round(float(state.state)) == expected
     assert state.attributes[ATTR_UNIT_OF_MEASUREMENT] == uom
+
+
+async def test_electrical_measurement_init(
+    hass, zigpy_device_mock, zha_device_joined,
+):
+    """Test proper initialization of the electrical measurement cluster."""
+
+    cluster_id = homeautomation.ElectricalMeasurement.cluster_id
+    zigpy_device = zigpy_device_mock(
+        {
+            1: {
+                "in_clusters": [cluster_id, general.Basic.cluster_id],
+                "out_cluster": [],
+                "device_type": 0x0000,
+            }
+        }
+    )
+    cluster = zigpy_device.endpoints[1].in_clusters[cluster_id]
+    zha_device = await zha_device_joined(zigpy_device)
+    entity_id = await find_entity_id(DOMAIN, zha_device, hass)
+
+    # allow traffic to flow through the gateway and devices
+    await async_enable_traffic(hass, [zha_device])
+
+    # test that the sensor now have a state of unknown
+    assert hass.states.get(entity_id).state == STATE_UNKNOWN
+
+    await send_attributes_report(hass, cluster, {0: 1, 1291: 100, 10: 1000})
+    assert int(hass.states.get(entity_id).state) == 100
+
+    channel = zha_device.channels.pools[0].all_channels["1:0x0b04"]
+    assert channel.divisor == 1
+    assert channel.multiplier == 1
+
+    # update power divisor
+    await send_attributes_report(hass, cluster, {0: 1, 1291: 20, 0x0403: 5, 10: 1000})
+    assert channel.divisor == 5
+    assert channel.multiplier == 1
+    assert hass.states.get(entity_id).state == "4.0"
+
+    await send_attributes_report(hass, cluster, {0: 1, 1291: 30, 0x0605: 10, 10: 1000})
+    assert channel.divisor == 10
+    assert channel.multiplier == 1
+    assert hass.states.get(entity_id).state == "3.0"
+
+    # update power multiplier
+    await send_attributes_report(hass, cluster, {0: 1, 1291: 20, 0x0402: 6, 10: 1000})
+    assert channel.divisor == 10
+    assert channel.multiplier == 6
+    assert hass.states.get(entity_id).state == "12.0"
+
+    await send_attributes_report(hass, cluster, {0: 1, 1291: 30, 0x0604: 20, 10: 1000})
+    assert channel.divisor == 10
+    assert channel.multiplier == 20
+    assert hass.states.get(entity_id).state == "60.0"

@@ -225,7 +225,7 @@ async def create_yaml_resource_col(hass, yaml_resources):
         else:
             if CONF_RESOURCES in ll_conf:
                 _LOGGER.warning(
-                    "Resources need to be specified in your configuration.yaml. Please see the docs."
+                    "Resources need to be specified in your configuration.yaml. Please see the docs"
                 )
                 yaml_resources = ll_conf[CONF_RESOURCES]
 
@@ -234,7 +234,10 @@ async def create_yaml_resource_col(hass, yaml_resources):
 
 async def system_health_info(hass):
     """Get info for the info page."""
-    return await hass.data[DOMAIN]["dashboards"][None].async_get_info()
+    health_info = {"dashboards": len(hass.data[DOMAIN]["dashboards"])}
+    health_info.update(await hass.data[DOMAIN]["dashboards"][None].async_get_info())
+    health_info.update(await hass.data[DOMAIN]["resources"].async_get_info())
+    return health_info
 
 
 @callback

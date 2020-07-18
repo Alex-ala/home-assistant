@@ -17,7 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 
 # mypy: allow-untyped-defs, no-check-untyped-defs
@@ -39,7 +39,7 @@ RIGHT_METHOD = "right"
 INTEGRATION_METHOD = [TRAPEZOIDAL_METHOD, LEFT_METHOD, RIGHT_METHOD]
 
 # SI Metric prefixes
-UNIT_PREFIXES = {None: 1, "k": 10 ** 3, "G": 10 ** 6, "T": 10 ** 9}
+UNIT_PREFIXES = {None: 1, "k": 10 ** 3, "M": 10 ** 6, "G": 10 ** 9, "T": 10 ** 12}
 
 # SI Time prefixes
 UNIT_TIME = {
@@ -127,8 +127,10 @@ class IntegrationSensor(RestoreEntity):
                 _LOGGER.warning("Could not restore last state: %s", err)
 
         @callback
-        def calc_integration(entity, old_state, new_state):
+        def calc_integration(event):
             """Handle the sensor state changes."""
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
             if (
                 old_state is None
                 or old_state.state in [STATE_UNKNOWN, STATE_UNAVAILABLE]
@@ -172,9 +174,11 @@ class IntegrationSensor(RestoreEntity):
                 _LOGGER.error("Could not calculate integral: %s", err)
             else:
                 self._state += integral
-                self.async_schedule_update_ha_state()
+                self.async_write_ha_state()
 
-        async_track_state_change(self.hass, self._sensor_source_id, calc_integration)
+        async_track_state_change_event(
+            self.hass, [self._sensor_source_id], calc_integration
+        )
 
     @property
     def name(self):
