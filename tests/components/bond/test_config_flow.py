@@ -29,6 +29,7 @@ async def test_user_form(hass: core.HomeAssistant):
             result["flow_id"],
             {CONF_HOST: "some host", CONF_ACCESS_TOKEN: "test-token"},
         )
+        await hass.async_block_till_done()
 
     assert result2["type"] == "create_entry"
     assert result2["title"] == "test-bond-id"
@@ -36,7 +37,6 @@ async def test_user_form(hass: core.HomeAssistant):
         CONF_HOST: "some host",
         CONF_ACCESS_TOKEN: "test-token",
     }
-    await hass.async_block_till_done()
     assert len(mock_setup.mock_calls) == 1
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -77,6 +77,24 @@ async def test_user_form_cannot_connect(hass: core.HomeAssistant):
 
     assert result2["type"] == "form"
     assert result2["errors"] == {"base": "cannot_connect"}
+
+
+async def test_user_form_old_firmware(hass: core.HomeAssistant):
+    """Test we handle unsupported old firmware."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    with patch_bond_version(
+        return_value={"no_bond_id": "present"}
+    ), patch_bond_device_ids():
+        result2 = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_HOST: "some host", CONF_ACCESS_TOKEN: "test-token"},
+        )
+
+    assert result2["type"] == "form"
+    assert result2["errors"] == {"base": "old_firmware"}
 
 
 async def test_user_form_unexpected_client_error(hass: core.HomeAssistant):
@@ -144,8 +162,10 @@ async def test_zeroconf_form(hass: core.HomeAssistant):
         return_value={"bondid": "test-bond-id"}
     ), patch_bond_device_ids(), _patch_async_setup() as mock_setup, _patch_async_setup_entry() as mock_setup_entry:
         result2 = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_ACCESS_TOKEN: "test-token"},
+            result["flow_id"],
+            {CONF_ACCESS_TOKEN: "test-token"},
         )
+        await hass.async_block_till_done()
 
     assert result2["type"] == "create_entry"
     assert result2["title"] == "test-bond-id"
@@ -153,7 +173,6 @@ async def test_zeroconf_form(hass: core.HomeAssistant):
         CONF_HOST: "test-host",
         CONF_ACCESS_TOKEN: "test-token",
     }
-    await hass.async_block_till_done()
     assert len(mock_setup.mock_calls) == 1
     assert len(mock_setup_entry.mock_calls) == 1
 
@@ -231,4 +250,7 @@ def _patch_async_setup():
 
 
 def _patch_async_setup_entry():
-    return patch("homeassistant.components.bond.async_setup_entry", return_value=True,)
+    return patch(
+        "homeassistant.components.bond.async_setup_entry",
+        return_value=True,
+    )
